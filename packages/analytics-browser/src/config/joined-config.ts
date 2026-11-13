@@ -3,6 +3,7 @@ import {
   type ElementInteractionsOptions,
   BrowserConfig,
   CustomEnrichmentOptions,
+  EngagedTimeOptions,
   RemoteConfig,
   NetworkTrackingOptionsRemoteConfig,
   safeJsonStringify,
@@ -11,7 +12,13 @@ import {
   transformNetworkTrackingRemoteConfig,
 } from '@amplitude/analytics-core';
 
+/** Wire representation of the boolean | EngagedTimeOptions SDK option. */
+export interface EngagedTimeOptionsRemoteConfig extends EngagedTimeOptions {
+  enabled?: boolean;
+}
+
 export interface AutocaptureOptionsRemoteConfig extends AutocaptureOptions {
+  engagedTimeTracking?: boolean | EngagedTimeOptionsRemoteConfig;
   elementInteractions?: boolean | ElementInteractionsOptionsRemoteConfig;
   networkTracking?: boolean | NetworkTrackingOptionsRemoteConfig;
 }
