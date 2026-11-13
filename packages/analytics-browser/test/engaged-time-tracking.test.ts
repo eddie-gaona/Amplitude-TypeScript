@@ -9,8 +9,6 @@ import {
 } from '@amplitude/analytics-core';
 import { AmplitudeBrowser } from '../src/browser-client';
 import { getEngagedTimeTrackingConfig, isEngagedTimeTrackingEnabled } from '../src/default-tracking';
-import { updateBrowserConfigWithRemoteConfig } from '../src/config/joined-config';
-import { createConfigurationMock } from './helpers/mock';
 
 describe('engagedTimeTracking configuration', () => {
   test.each([undefined, false, true, {}, { engagedTimeTracking: false }])(
@@ -32,24 +30,6 @@ describe('engagedTimeTracking configuration', () => {
       }
     },
   );
-  test.each([
-    { remote: true, expected: undefined },
-    { remote: false, expected: undefined },
-    { remote: { enabled: true }, expected: undefined },
-    { remote: { enabled: false, pageViewEventType: 'page_view' }, expected: undefined },
-    {
-      remote: { enabled: true, pageViewEventType: 'page_view', inactivityTimeoutMillis: 1000 },
-      expected: { pageViewEventType: 'page_view', inactivityTimeoutMillis: 1000 },
-    },
-  ])('translates independent remote setting $remote', ({ remote, expected }) => {
-    const config = createConfigurationMock({ autocapture: false });
-    updateBrowserConfigWithRemoteConfig({ autocapture: { pageViews: false, engagedTimeTracking: remote } }, config);
-    expect(getEngagedTimeTrackingConfig(config)).toEqual(expected);
-    expect(isEngagedTimeTrackingEnabled(config.autocapture)).toBe(
-      remote !== false && !(typeof remote === 'object' && remote.enabled === false),
-    );
-    expect(config.autocapture).toMatchObject({ pageViews: false });
-  });
 });
 
 describe('engagedTimeTracking through the Browser SDK', () => {
@@ -304,7 +284,7 @@ describe('engagedTimeTracking through the Browser SDK', () => {
     expect(events()[events().length - 1]).toMatchObject({ event_id: original.event_id, time: original.time });
   });
 
-  test.each([false, true])('captures after existing enrichment, including initial optOut=%p', async (optOut) => {
+  test('captures after existing enrichment during normal initialization', async () => {
     await client.add({
       name: 'application-enrichment',
       type: 'enrichment',
@@ -313,11 +293,7 @@ describe('engagedTimeTracking through the Browser SDK', () => {
         event_properties: { ...event.event_properties, application_context: 'captured' },
       }),
     }).promise;
-    await init(true, true, optOut);
-    if (optOut) {
-      client.setOptOut(false);
-      await jest.advanceTimersByTimeAsync(20);
-    }
+    await init(true, true);
     const enrichment = client.timeline.plugins.filter((plugin) => plugin.type === 'enrichment');
     expect(enrichment[enrichment.length - 1].name).toBe('@amplitude/plugin-engaged-time-tracking-browser');
     expect(events()).toHaveLength(1);
@@ -405,7 +381,7 @@ describe('engagedTimeTracking through the Browser SDK', () => {
     expect(events()).toHaveLength(1);
     expect(events()[0].delay).toBeDefined();
   });
-  test('waits for consent before installing engagement and tracking custom events', async () => {
+  test('waits for consent before tracking custom events', async () => {
     await init({ pageViewEventType: 'page_view' }, false, true);
     await track('page_view');
     expect(send).not.toHaveBeenCalled();

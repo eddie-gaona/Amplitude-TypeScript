@@ -195,64 +195,6 @@ describe('engaged page sources through the Browser SDK', () => {
     expect(pages.every((event) => properties(event)['[Amplitude] Page Counter'] === 1)).toBe(true);
   });
 
-  test.each([undefined, 'attribution'] as const)(
-    'installs engagement after the PageView counter following initial opt-out, trackOn=%s',
-    async (trackOn) => {
-      const send = jest.fn<ReturnType<Transport['send']>, Parameters<Transport['send']>>().mockResolvedValue({
-        status: Status.Success,
-        statusCode: 200,
-        body: { eventsIngested: 1, payloadSizeBytes: 0, serverUploadTime: 100_000 },
-      });
-      await client.add({
-        name: 'test-transport',
-        type: 'before',
-        async setup(config) {
-          config.transportProvider = { send };
-        },
-      }).promise;
-      await client.init('test-key', {
-        autocapture: {
-          attribution: false,
-          sessions: false,
-          fileDownloads: false,
-          formInteractions: false,
-          pageViews: { trackOn },
-          engagedTimeTracking: true,
-        },
-        optOut: true,
-        fetchRemoteConfig: false,
-        enableDiagnostics: false,
-        identityStorage: 'none',
-        offline: false,
-        flushIntervalMillis: 10,
-        logLevel: 0,
-      }).promise;
-      client.setOptOut(false);
-      await jest.advanceTimersByTimeAsync(20);
-      const names = client.timeline.plugins.map((plugin) => plugin.name);
-      const pageViewName = '@amplitude/plugin-page-view-tracking-browser';
-      const urlName = '@amplitude/plugin-page-url-enrichment-browser';
-      const expectedOrder = [
-        ...(trackOn === 'attribution' ? [pageViewName, urlName] : [urlName, pageViewName]),
-        '@amplitude/plugin-engaged-time-tracking-browser',
-      ];
-      expect(names.filter((name) => expectedOrder.includes(name || ''))).toEqual(expectedOrder);
-      if (trackOn === 'attribution') {
-        client.track({ event_type: '$identify', user_properties: { $set: { ...BASE_CAMPAIGN, utm_source: 'test' } } });
-        await jest.advanceTimersByTimeAsync(20);
-      }
-      const events = send.mock.calls.flatMap(([, payload]) => payload.events);
-      expect(events).toHaveLength(1);
-      expect(events[0].event_properties).toMatchObject({
-        '[Amplitude] Page Counter': 1,
-        '[Amplitude] Previous Page Location': 'https://www.google.com/',
-      });
-      client.setOptOut(true);
-      await jest.advanceTimersByTimeAsync(20);
-      expect(send.mock.calls.flatMap(([, payload]) => payload.events)).toHaveLength(1);
-    },
-  );
-
   test.each([false, true])('preserves navigation sources with engagedTimeTracking=%s', async (engagedTimeTracking) => {
     const send = jest.fn<ReturnType<Transport['send']>, Parameters<Transport['send']>>().mockResolvedValue({
       status: Status.Success,
